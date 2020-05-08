@@ -2,8 +2,6 @@
 
 module Program = 
     open SFML.System
-    open System.Timers
-    open System.Threading
 
     [<EntryPoint>]
     let main argv =
