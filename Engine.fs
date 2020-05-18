@@ -8,45 +8,6 @@ open SFML.Graphics
 open SFML.System
 open SFML.Window
 
-type HandleKeyboard(window: RenderWindow) =
-    let mutable keyState = Set.empty
-
-    let keyPressedHandle =
-        window.KeyPressed.Subscribe(fun key -> keyState <- keyState.Add key.Code)
-
-    let keyReleasedHandle =
-        window.KeyReleased.Subscribe(fun key -> keyState <- keyState.Remove key.Code)
-
-    let validMovementKey (keyPress: Keyboard.Key) =
-        match keyPress with
-        | Keyboard.Key.Up
-        | Keyboard.Key.Left
-        | Keyboard.Key.Down
-        | Keyboard.Key.Right -> true
-        | _ -> false
-
-    let keyToMovement (keyPress: Keyboard.Key) =
-        match keyPress with
-        | Keyboard.Key.Up -> Vector2f(0.0f, -1.0f)
-        | Keyboard.Key.Left -> Vector2f(-1.0f, 0.0f)
-        | Keyboard.Key.Down -> Vector2f(0.0f, 1.0f)
-        | Keyboard.Key.Right -> Vector2f(1.0f, 0.0f)
-        | _ -> Vector2f(0.0f, 0.0f)
-
-    member this.IsKeyPressed(key: Keyboard.Key) = keyState |> Set.contains key
-
-    member this.GetMovement() =
-        keyState
-        |> Set.filter validMovementKey
-        |> Seq.map keyToMovement
-        |> Seq.fold (+) (Vector2f(0.0f, 0.0f))
-
-    interface IDisposable with
-        member this.Dispose() =
-            keyPressedHandle.Dispose()
-            keyReleasedHandle.Dispose()
-
-
 
 module Engine =
 
@@ -55,38 +16,78 @@ module Engine =
 
         let clock = Stopwatch()
         let font = new Font("assets/courier.ttf")
-        // let shape = new CircleShape(10.0f, FillColor = Color.Green)
-        // let keyboard = new HandleKeyboard(window)
 
-        // This function runs only once as is used to edit the display list
-        let loadDrawables (gamestate: State): State =
+        // --------------------------------------------------
+        // Load Function
+        // --------------------------------------------------
+        // This function is used to load assets and to generate 
+        // display list. It runs only once.
+        let loadEntities (gamestate: State): State =
             let myBalls =
-                EnCircle(color = Color.Green, radius = 10.0f, Position = gamestate.Position)
+                EnCircle(Color = Color.Green, Radius = 10.0f, Position = gamestate.Position)
 
-            let fpsCounter = EnFPS(Position = Vector2f(10.0f, 10.0f))
+            let fpsCounter  = EnFPS(Position = Vector2f(10.0f, 10.0f))
+            let myBallPos   = EnText(Value = string gamestate.Position, Position = Vector2f(10.0f, 40.0f))
 
-            let updatedDrawables =
-                Map.empty.Add("myBalls", myBalls).Add("myFPS", fpsCounter)
+            let updatedEntities =
+                Map.empty
+                    .Add("myBalls", myBalls)
+                    .Add("myFPS", fpsCounter)
+                    .Add("myBallsPos", myBallPos)
 
             { gamestate with
-                  Drawables = updatedDrawables }
+                  Entities = updatedEntities }
 
+        // --------------------------------------------------
+        // Input Function
+        // --------------------------------------------------
         // This function is called every tick.
         // It is used to capture all user inputs
         let getInput (gamestate: State): State =
-            match window.IsOpen with
-            | false -> ()
-            | true -> window.DispatchEvents()
-            // if keyboard.IsKeyPressed Keyboard.Key.Escape then window.Close()
-            gamestate
 
+            let mutable keys: Set<Keyboard.Key> = Set.empty
+            if Keyboard.IsKeyPressed(Keyboard.Key.Up) then keys <- keys.Add Keyboard.Key.Up 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Right) then keys <- keys.Add Keyboard.Key.Right 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Down) then keys <- keys.Add Keyboard.Key.Down 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Left) then keys <- keys.Add Keyboard.Key.Left 
+            
+            {gamestate with KeysPressed = keys}
+
+        // --------------------------------------------------
+        // Update Function
+        // --------------------------------------------------
         // This function is called every tick.
         // It is used to update the game state based on game logic and inputs
-        let updateState (gamestate: State): State = gamestate
+        let updateState (gamestate: State): State = 
+            window.DispatchEvents()
 
+            let mutable pos = gamestate.Position
+            if gamestate.KeysPressed.Contains Keyboard.Key.Up 
+                then pos <- (pos + Vector2f(0.0f, -1.0f))
+            if gamestate.KeysPressed.Contains Keyboard.Key.Right 
+                then pos <- (pos + Vector2f(1.0f, 0.0f))
+            if gamestate.KeysPressed.Contains Keyboard.Key.Down 
+                then pos <- (pos + Vector2f(0.0f, 1.0f))
+            if gamestate.KeysPressed.Contains Keyboard.Key.Left 
+                then pos <- (pos + Vector2f(-1.0f, 0.0f))
+                       
+            let mutable displayList = gamestate.Entities
+            displayList <- displayList.Add ("myBalls", EnCircle(Color = Color.Red, Radius = 10.0f, Position = pos)) 
+           
+            if gamestate.KeysPressed.Count > 0 then 
+                printfn "%A" gamestate.KeysPressed
+                printfn "%A" pos
+                printfn "%A" displayList.["myBalls"]
+
+            {gamestate with Entities = displayList}
+
+        // --------------------------------------------------
+        // Draw Function
+        // --------------------------------------------------
         // This function is called every tick.
-        // It is used to draw all the entities in the drawables list
+        // It is used to draw all the entities in the Entities list
         let drawState (gamestate: State): State =
+            printfn "%A" gamestate.Entities
             let renderLayer (entitiesMap: Map<string, Entity>) =
                 entitiesMap
                 |> Map.iter (fun id ent ->
@@ -100,9 +101,7 @@ module Engine =
                         fps.Position <- position
                         window.Draw fps
                     | EnCircle (color, radius, position) ->
-                        let shape =
-                            new CircleShape(radius, FillColor = color)
-
+                        let shape = new CircleShape(radius, FillColor = color)
                         shape.Position <- position
                         window.Draw shape)
 
@@ -110,10 +109,13 @@ module Engine =
             | false -> ()
             | true ->
                 window.Clear()
-                renderLayer gamestate.Drawables
+                renderLayer gamestate.Entities
                 window.Display()
             gamestate
 
+        // --------------------------------------------------
+        // Clock Function
+        // --------------------------------------------------
         let setDeltaTime (gamestate: State) =
             let elapsed = int clock.ElapsedMilliseconds
 
@@ -125,12 +127,17 @@ module Engine =
             clock.Restart()
             { gamestate with DeltaTime = dt }
 
+        // --------------------------------------------------
+        // Game Loop Function
+        // --------------------------------------------------
         let rec runLoop (gamestate: State) =
-            gamestate //
-            |> getInput
+            gamestate 
+            |> getInput 
             |> updateState
             |> drawState
             |> setDeltaTime
             |> runLoop
 
-        gamestate |> loadDrawables |> runLoop
+        gamestate 
+        |> loadEntities 
+        |> runLoop

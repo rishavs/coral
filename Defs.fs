@@ -1,5 +1,6 @@
 namespace Coral
 open SFML.System
+open SFML.Window
 open System.Timers
 
 // ------------------------------------------------------
@@ -12,9 +13,9 @@ type Config = {
 }
 
 type Entity =
-    | EnText of value : string * Position: Vector2f
+    | EnText of Value : string * Position: Vector2f
     | EnFPS of Position: Vector2f
-    | EnCircle of color:SFML.Graphics.Color * radius: float32 * Position: Vector2f
+    | EnCircle of Color:SFML.Graphics.Color * Radius: float32 * Position: Vector2f
 
 // type DrawablesList = Map<string, Entity>
 
@@ -27,8 +28,16 @@ type State = {
     Position    : Vector2f
     CurrentScene: AvailableScenes
     DeltaTime   : int
-    Drawables   : Map<string, Entity>
+    KeysPressed : Set<Keyboard.Key>
+    Entities   : Map<string, Entity>
 }
+
+type HandledKeys = 
+    | Up
+    | Right
+    | Down
+    | Left
+    
 // type BtnState =
 //     | Default of Color
 //     | Hover of Color

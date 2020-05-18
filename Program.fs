@@ -11,11 +11,12 @@ module Program =
             Title = "My Awesome Game"
         } 
 
-        let gamestate: State = {
-            Position = Vector2f(100.0f, 100.0f)
-            CurrentScene = MainMenuScn
-            DeltaTime = 0
-            Drawables = Map.empty
+        let gamestate = {
+            Position        = Vector2f(100.0f, 100.0f)
+            CurrentScene    = MainMenuScn
+            DeltaTime       = 0
+            KeysPressed     = Set.empty
+            Entities        = Map.empty
         }
         
         Engine.start (config, gamestate)
