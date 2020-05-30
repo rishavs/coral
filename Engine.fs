@@ -9,11 +9,10 @@ open SFML.System
 open SFML.Window
 
 
-module Engine =
+module Engine = 
 
     let start (config, gamestate) =
         let window = new RenderWindow(VideoMode(config.Width, config.Height), config.Title)
-
         let clock = Stopwatch()
         let font = new Font("assets/courier.ttf")
 
@@ -22,20 +21,37 @@ module Engine =
         // --------------------------------------------------
         // This function is used to load assets and to generate 
         // display list. It runs only once.
-        let loadEntities (gamestate: State): State =
-            let myBalls =
-                EnCircle(Color = Color.Green, Radius = 10.0f, Position = gamestate.Position)
-
-            let fpsCounter  = EnFPS(Position = Vector2f(10.0f, 10.0f))
-            let myBallPos   = EnText(Value = string gamestate.Position, Position = Vector2f(10.0f, 40.0f))
-
+        let setupScene (gState: State): State =
+            let fps     = EnText ("FPS: 0", font, Position = Vector2f(10.0f, 10.0f))
+            let ticks   = EnText ("Ticks: 0", font, Position = Vector2f(10.0f, 50.0f))
+            let ballPos = EnText ("Ball Position: 0, 0", font, Position = Vector2f(10.0f, 100.0f))
+            // let fps = EnText {
+            //     Obj = fpsDrawable
+            //     IsVisible = true 
+            //     IsActive = true
+            // }
+            // let ticksDrawable = new SFML.Graphics.Text("Ticks: 0" , font)
+            // ticksDrawable.Position <- Vector2f(10.0f, 50.0f)
+            // let ticks = EnText {
+            //     Obj = ticksDrawable
+            //     IsVisible = true 
+            //     IsActive = true
+            // }
+            // let ballPosDrawable = new SFML.Graphics.Text("Ball Position: " + string(Vector2f(0.0f, 0.0f)), font)
+            // ballPosDrawable.Position <- Vector2f(10.0f, 100.0f)
+            // let ballPos = EnText {
+            //     Obj = ballPosDrawable
+            //     IsVisible = true 
+            //     IsActive = true
+            // }
+                       
             let updatedEntities =
                 Map.empty
-                    .Add("myBalls", myBalls)
-                    .Add("myFPS", fpsCounter)
-                    .Add("myBallsPos", myBallPos)
+                    .Add("FPSDebugHUD", fps)
+                    .Add("TicksDebugHUD", ticks)
+                    .Add("BallsPos", ballPos)
 
-            { gamestate with
+            { gState with
                   Entities = updatedEntities }
 
         // --------------------------------------------------
@@ -43,101 +59,110 @@ module Engine =
         // --------------------------------------------------
         // This function is called every tick.
         // It is used to capture all user inputs
-        let getInput (gamestate: State): State =
-
-            let mutable keys: Set<Keyboard.Key> = Set.empty
-            if Keyboard.IsKeyPressed(Keyboard.Key.Up) then keys <- keys.Add Keyboard.Key.Up 
-            if Keyboard.IsKeyPressed(Keyboard.Key.Right) then keys <- keys.Add Keyboard.Key.Right 
-            if Keyboard.IsKeyPressed(Keyboard.Key.Down) then keys <- keys.Add Keyboard.Key.Down 
-            if Keyboard.IsKeyPressed(Keyboard.Key.Left) then keys <- keys.Add Keyboard.Key.Left 
+        let getInput (gState: State): State =
+            window.DispatchEvents()
+            let mutable commands: Set<UserCommands> = Set.empty
+            if Keyboard.IsKeyPressed(Keyboard.Key.Up) then commands <- commands.Add MoveUp
+            if Keyboard.IsKeyPressed(Keyboard.Key.Right) then commands <- commands.Add MoveRight 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Down) then commands <- commands.Add MoveDown 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Left) then commands <- commands.Add MoveLeft 
+            if Keyboard.IsKeyPressed(Keyboard.Key.Escape) then commands <- commands.Add CloseGame 
+            if Keyboard.IsKeyPressed(Keyboard.Key.F1) then commands <- commands.Add ToggleDebugHUD 
             
-            {gamestate with KeysPressed = keys}
+            {gState with UserCommandsList = commands}
 
+        // --------------------------------------------------
+        // Update Function
+        // --------------------------------------------------
+        // This function is called every tick. Based on the command, it adds, 
+        // It is used to update the game state based on game logic and inputs
+        let updateDisplayList (gState: State): State = 
+            gState
         // --------------------------------------------------
         // Update Function
         // --------------------------------------------------
         // This function is called every tick.
         // It is used to update the game state based on game logic and inputs
-        let updateState (gamestate: State): State = 
-            window.DispatchEvents()
+        let updateState (gState: State): State = 
 
-            let mutable pos = gamestate.Position
-            if gamestate.KeysPressed.Contains Keyboard.Key.Up 
-                then pos <- (pos + Vector2f(0.0f, -1.0f))
-            if gamestate.KeysPressed.Contains Keyboard.Key.Right 
-                then pos <- (pos + Vector2f(1.0f, 0.0f))
-            if gamestate.KeysPressed.Contains Keyboard.Key.Down 
-                then pos <- (pos + Vector2f(0.0f, 1.0f))
-            if gamestate.KeysPressed.Contains Keyboard.Key.Left 
-                then pos <- (pos + Vector2f(-1.0f, 0.0f))
-                       
-            let mutable displayList = gamestate.Entities
-            displayList <- displayList.Add ("myBalls", EnCircle(Color = Color.Red, Radius = 10.0f, Position = pos)) 
-           
-            if gamestate.KeysPressed.Count > 0 then 
-                printfn "%A" gamestate.KeysPressed
-                printfn "%A" pos
-                printfn "%A" displayList.["myBalls"]
+            let mutable entitiesMap = gState.Entities
+            // let fpsObj = entitiesMap.["fps"]
+            // fpsObj.Obj <- "x"
 
-            {gamestate with Entities = displayList}
+            // if not (entitiesMap.ContainsKey("fpsHUD") ) && gState.ShowDebugHUD 
+            // then 
+            //     let fpsHUD  = EnFPS(Position = Vector2f(10.0f, 10.0f))
+
+            let mutable pos = gState.BallPosition
+            if gState.UserCommandsList.Contains MoveUp
+            then pos <- (pos + Vector2f(0.0f, -1.0f))
+            
+            if gState.UserCommandsList.Contains MoveRight 
+            then pos <- (pos + Vector2f(1.0f, 0.0f))
+        
+            if gState.UserCommandsList.Contains MoveDown 
+            then pos <- (pos + Vector2f(0.0f, 1.0f))
+    
+            if gState.UserCommandsList.Contains MoveLeft 
+            then pos <- (pos + Vector2f(-1.0f, 0.0f))
+
+            if gState.UserCommandsList.Contains CloseGame 
+            then window.Close()
+
+            let debugHUDState = 
+                if gState.UserCommandsList.Contains ToggleDebugHUD 
+                then not gState.ShowDebugHUD else gState.ShowDebugHUD
+
+            {gState with TickCount = gState.TickCount + 1; BallPosition = pos; ShowDebugHUD = debugHUDState}
 
         // --------------------------------------------------
         // Draw Function
         // --------------------------------------------------
         // This function is called every tick.
         // It is used to draw all the entities in the Entities list
-        let drawState (gamestate: State): State =
-            printfn "%A" gamestate.Entities
-            let renderLayer (entitiesMap: Map<string, Entity>) =
-                entitiesMap
+        let drawState (gState: State): State =
+            let renderLayer (entities: Map<string, Entity>) =
+                entities
                 |> Map.iter (fun id ent ->
                     match ent with
-                    | EnText (value, position) ->
-                        let txt = new Text(value, font)
-                        txt.Position <- position
-                        window.Draw txt
-                    | EnFPS (position) ->
-                        let fps = new Text("FPS: " + string gamestate.DeltaTime, font)
-                        fps.Position <- position
-                        window.Draw fps
-                    | EnCircle (color, radius, position) ->
-                        let shape = new CircleShape(radius, FillColor = color)
-                        shape.Position <- position
-                        window.Draw shape)
+                    | IText ->
+                        window.Draw ent
+                    | _ -> ()
+                )
 
-            match window.IsOpen with
-            | false -> ()
-            | true ->
-                window.Clear()
-                renderLayer gamestate.Entities
-                window.Display()
-            gamestate
+   
+            window.Clear()
+            renderLayer gState.Entities
+            window.Display()
+                
+            gState
 
         // --------------------------------------------------
         // Clock Function
         // --------------------------------------------------
-        let setDeltaTime (gamestate: State) =
+        let setDeltaTime (gState: State) =
             let elapsed = int clock.ElapsedMilliseconds
+            let tickDuration = 16
 
             // Ensure that the min delta time is fixed to 16.67 or with a FPS of 60
-            if elapsed < 16
-            then System.Threading.Thread.Sleep(16 - elapsed)
+            if elapsed < tickDuration
+            then System.Threading.Thread.Sleep(tickDuration - elapsed)
 
             let dt = int clock.ElapsedMilliseconds
             clock.Restart()
-            { gamestate with DeltaTime = dt }
+            { gState with DeltaTime = dt }
 
         // --------------------------------------------------
         // Game Loop Function
         // --------------------------------------------------
-        let rec runLoop (gamestate: State) =
-            gamestate 
-            |> getInput 
+        let rec runLoop (gState: State) =
+            gState 
+            |> getInput
             |> updateState
             |> drawState
             |> setDeltaTime
             |> runLoop
 
-        gamestate 
-        |> loadEntities 
-        |> runLoop
+        gamestate
+        |> setupScene
+        |> runLoop 

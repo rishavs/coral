@@ -10,15 +10,24 @@ module Program =
             Height = 900u
             Title = "My Awesome Game"
         } 
+        // Define starting entities
 
+
+        // Define starting game state
         let gamestate = {
-            Position        = Vector2f(100.0f, 100.0f)
-            CurrentScene    = MainMenuScn
-            DeltaTime       = 0
-            KeysPressed     = Set.empty
-            Entities        = Map.empty
+            BallPosition                = Vector2f(100.0f, 100.0f)
+            CurrentScene                = MainMenuScn
+            DeltaTime                   = 0
+            TickCount                   = 0
+            ShowDebugHUD                = true
+            CurrentTickLoadsNewEntities = false
+            CurrentTickUpdatesDrawables = false
+            CurrentTickSetsupScene      = true
+            UserCommandsList            = Set.empty
+            KeysPressed                 = Set.empty
+            Entities                    = Map.empty
         }
-        
+     
         Engine.start (config, gamestate)
         0 // return an integer exit code
 
